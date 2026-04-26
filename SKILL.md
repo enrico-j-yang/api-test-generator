@@ -1,6 +1,6 @@
 ---
 name: api-test-generator
-description: Generate comprehensive API test scenarios, flowcharts, executable pytest scripts, callback servers, and README documentation from API documentation (Swagger, OpenAPI, markdown specs). Outputs: test matrices covering all error codes, required/optional parameter combinations, valid/invalid values, CRUD workflows, async polling tests, webhook callback handling — using real service calls. MUST trigger when user provides API documentation and wants: test generation, test scripts, test scenarios, flowcharts, callback server, README. Trigger phrases: "generate API tests", "接口文档生成测试", "Swagger/OpenAPI test cases", "test scenarios from spec", "API automation scripts", "comprehensive coverage", "CRUD endpoint tests", "flowcharts for API tests", "回调服务器", "callback server", "HTML test report". DO NOT trigger for: unit tests, debugging tests, coverage analysis, API knowledge questions, mocking setup.
+description: Use when a user provides API documentation such as Swagger, OpenAPI, or markdown specs and wants generated API test scenarios, flowcharts, executable pytest scripts, webhook callback servers, or README test documentation for end-to-end service testing.
 ---
 
 # API Test Generator
