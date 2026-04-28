@@ -11,14 +11,14 @@ A skill for systematically generating comprehensive API test scenarios, executab
 
 ```
 Step 1: Collect API Documentation
-    ↓
-Step 2: Generate Test Scenario Matrix + Flowchart → Markdown Output
-    ↓
+    ->
+Step 2: Generate Test Scenario Matrix + Flowchart -> Markdown Output
+    ->
 Step 3: Configure Test Environment (ask user)
-    ↓
+    ->
 Step 4: Implement Test Scripts + Callback Server + README
-    ↓
-Step 5: Verify with pytest --collect-only
+    ->
+Step 5: Verify with compileall and pytest --collect-only
 ```
 
 ---
@@ -71,7 +71,7 @@ For each endpoint, generate test scenarios covering these dimensions:
 
 ### Test scenario matrix template
 
-Generate a table for each endpoint:
+Generate a table for each endpoint. Use stable Scenario IDs that can be copied into pytest comments and parameter IDs:
 
 ```markdown
 ## Endpoint: {METHOD} {PATH}
@@ -137,7 +137,6 @@ Generate test scripts following this structure:
 tests/
 ├── config.py              # Environment variable configuration
 ├── conftest.py             # pytest fixtures (auth, task management)
-├── callback_server.py      # Callback server (if API has callbacks)
 ├── test_{endpoint1}.py     # Tests for endpoint 1
 ├── test_{endpoint2}.py     # Tests for endpoint 2
 ├── test_workflow.py        # Workflow/async tests (if applicable)
@@ -186,27 +185,6 @@ def get_headers(content_type: str = "application/json") -> dict:
     }
 ```
 
-### Callback Server (callback_server.py)
-
-**Generate when API has callback_url or upload_url parameters.**
-
-Key features:
-- Flask server receiving POST callbacks
-- Save callback JSON to `test_data/callbacks/`
-- Save uploaded files to `test_data/uploads/`
-- Health check endpoint `/health`
-- List endpoints `/callback/list`, `/upload/list`
-- Configurable port via environment variable
-
-```python
-# Key endpoints:
-# POST /callback  → Save JSON, return {"code": 200}
-# POST /upload    → Save file, return {"code": 200, "url": "..."}
-# GET  /health    → Health check
-# GET  /callback/list → List all callbacks
-# GET  /upload/list   → List all uploads
-```
-
 ### Workflow Test Template (test_workflow.py)
 
 **Generate when API has async operations with status polling.**
@@ -252,23 +230,24 @@ class TestWorkflowFullCompletion:
    - Basic: `pytest tests/ -v`
    - By marker: `pytest tests/ -v -m smoke`
    - HTML report: `pytest tests/ -v --html=reports/report.html --self-contained-html`
-5. **Callback Server**: Startup instructions (foreground, background, custom port)
-6. **Test Scenarios**: Table of specific test cases with URLs
-7. **Test Statistics**: Count of test cases per file
-8. **FAQ**: Common issues and solutions
+5. **Test Scenarios**: Table of specific test cases with URLs
+6. **Test Statistics**: Count of test cases per file
+7. **FAQ**: Common issues and solutions
+
 
 ---
 
 ## Step 5: Verify Test Collection
 
-After generating all files, verify test collection:
+After generating all files, verify syntax and test collection:
 
 ```bash
-# Verify tests are collected correctly
+# Verify generated test files compile and collect correctly
+python -m compileall -q tests/
 pytest tests/ -v --collect-only
 ```
 
-Report the total count of collected tests and any import errors.
+Report the compile result, total collected test count, and any import errors.
 
 ---
 
@@ -278,8 +257,7 @@ The skill outputs:
 
 1. **Test documentation**: `{api-name}-test-scenarios.md` — matrices and flowcharts
 2. **Test scripts**: `tests/` directory — executable pytest scripts
-3. **Callback server**: `tests/callback_server.py` — if API has callbacks
-4. **Usage documentation**: `README.md` — complete running instructions
+3. **Usage documentation**: `README.md` — complete running instructions
 
 ### Key improvements from real-world testing:
 
@@ -288,9 +266,77 @@ The skill outputs:
 - **Async workflow tests**: Polling logic with file verification
 - **HTML report support**: `--html` parameter in README
 - **Direct pytest commands**: Not wrapped in pdm/other tools
-- **Specific test scenarios**: Actual test URLs, not placeholders
+- **Specific test scenarios**: Actual test data, not placeholders
+- **Scenario traceability**: Markdown Scenario IDs appear in pytest comments and parameter IDs
+- **Live-service observability**: Request/response logging uses logging at INFO, masks secrets, and truncates large payloads
+- **Fixture separation**: Keep endpoint-specific assets such as enrollment audio and evaluation audio in separate config maps
+- **Cleanup correctness**: Model cascade deletion and avoid double-deleting resources in teardown
 
 ---
+
+## Lessons From Live API Testing
+
+Apply these checks when turning API docs into executable live-service pytest suites:
+
+### Scenario Traceability
+
+- Keep every generated pytest case traceable to the markdown scenario matrix.
+- Add a nearby comment such as `# Scenario ID: VPR-GRPS-LIST-008` for one-off tests.
+- For parametrized tests, use `pytest.param(..., id="SCENARIO-ID")` so `pytest -v` output matches the matrix.
+- When requirements change, update the markdown expected result, test assertion, README note, and any parameterized ID together.
+
+### Live-Service Defaults
+
+- If the user asks to test the real service, do not add a separate run gate such as `*_RUN_LIVE`; run directly and skip only when required credentials or test assets are missing.
+- Use environment variables for tokens, base URLs, timeouts, audio files, and log truncation limits.
+- Mask `Authorization` and other secrets in logs.
+- Use pytest collection as a minimum verification step before claiming scripts are ready.
+
+### Request/Response Logging
+
+- Use Python `logging`, not `print`, for request and response dumps.
+- Configure default log level to `INFO` in test config or `conftest.py`.
+- Log method, URL, sanitized headers, query params, JSON body, status code, elapsed time, and response body.
+- Truncate large payloads such as base64 audio with a configurable limit (for example `*_LOG_MAX_BODY_CHARS`).
+
+### Test Data and Media Fixtures
+
+- Keep endpoint-specific media fixtures separate when semantics differ.
+  - Example: enrollment audio may support `lame` and `speex-wb`, while evaluation audio may require separate `pcm` and `ico` fixtures.
+- Do not reuse the same source audio for scenarios where the business rule requires independent input, such as evaluating a feature with audio different from the enrollment sample.
+- Generate or document required derived assets before live testing, and allow each file path to be overridden by environment variables.
+
+### Cleanup and Resource Lifecycles
+
+- Build factory fixtures that register created resource IDs and clean them up after tests.
+- Model cascade behavior explicitly. If deleting a parent deletes children, do not try to delete those children again in teardown.
+- Make cleanup idempotent and tolerant of resources already deleted by the scenario under test.
+- For destructive live tests, use unique names and isolate resources per test where possible.
+
+### Documented vs Actual Behavior
+
+- Treat user-confirmed live behavior as an override to initial docs, and record it in the scenario notes.
+- Preserve compatibility behavior in tests, such as deprecated request fields being ignored.
+- Distinguish similar empty-state behavior per endpoint; for example one endpoint may return `400` for an empty feature set while another returns `200` with an empty list.
+- Do not add tests for formats, auth flows, cross-user calls, or defaults that the user explicitly says are unsupported or out of scope.
+
+### Assertion Patterns
+
+- Assert response HTTP status first, then stable response fields and business invariants.
+- Keep numeric score ranges endpoint-specific; do not reuse compare-score assertions for evaluate-score assertions if the documented range differs.
+- Prefer schema and invariant assertions over exact IDs, timestamps, or ordering unless the API guarantees them.
+- For list endpoints, assert pagination metadata and array shape; for default pagination, verify the status and minimal response contract.
+
+### Verification Checklist
+
+Before handing off generated scripts, run and report:
+
+```bash
+python -m compileall -q <generated-test-dir>
+pytest <generated-test-dir> -v --collect-only
+```
+
+If dependencies are missing, report the exact blocker. If live network is sandboxed, request permission before running real service tests.
 
 ## Test Markers
 
