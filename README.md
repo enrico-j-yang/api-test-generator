@@ -1,5 +1,8 @@
 # API Test Generator Skill
 
+[![npx skills add](https://img.shields.io/badge/npx%20skills%20add-enrico--j--yang%2Fapi--test--generator-000000?logo=npm&logoColor=white)](https://skills.sh)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+
 A Claude Code skill for systematically generating comprehensive API test suites from API documentation.
 
 ## Installation
