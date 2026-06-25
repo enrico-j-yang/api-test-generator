@@ -2,6 +2,36 @@
 
 A Claude Code skill for systematically generating comprehensive API test suites from API documentation.
 
+## Installation
+
+### Via `npx skills` (works for Claude Code, Codex, Cursor, Gemini CLI, and 60+ other agents)
+
+```bash
+npx skills add enrico-j-yang/api-test-generator
+```
+
+### As a Claude Code plugin (loaded with namespace)
+
+```bash
+# One-off load for a single session
+claude --plugin-dir /path/to/api-test-generator
+
+# Or install from this repo into Claude Code's plugin manager
+/plugin install enrico-j-yang/api-test-generator
+```
+
+Once installed as a plugin, the skill is invoked as `/api-test-generator:api-test-generator` (namespaced) or activates automatically when the model detects API documentation in the conversation.
+
+### Manual install
+
+Clone the repo into your agent's skills directory:
+
+```bash
+git clone https://github.com/enrico-j-yang/api-test-generator ~/.claude/skills/api-test-generator
+# or for the broader .agents path
+git clone https://github.com/enrico-j-yang/api-test-generator ~/.agents/skills/api-test-generator
+```
+
 ## What This Skill Does
 
 This skill transforms API documentation (Swagger, OpenAPI, or markdown specs) into:

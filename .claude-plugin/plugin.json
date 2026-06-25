@@ -1,0 +1,20 @@
+{
+  "name": "api-test-generator",
+  "description": "Use when a user provides API documentation such as Swagger, OpenAPI, or markdown specs and wants generated API test scenarios, flowcharts, executable pytest scripts, webhook callback servers, or README test documentation for end-to-end service testing.",
+  "version": "1.1.0",
+  "author": {
+    "name": "Enrico Yang"
+  },
+  "homepage": "https://github.com/enrico-j-yang/api-test-generator",
+  "repository": "https://github.com/enrico-j-yang/api-test-generator",
+  "license": "MIT",
+  "keywords": [
+    "api-testing",
+    "pytest",
+    "openapi",
+    "swagger",
+    "test-generation",
+    "webhook",
+    "skill"
+  ]
+}
