@@ -9,16 +9,25 @@ A skill for systematically generating comprehensive API test scenarios, executab
 
 ## Workflow Overview
 
+**Adapt workflow depth to user input detail level:**
+
+| User Input Level | Approach |
+|-----------------|----------|
+| **Detailed** (full API spec, clear requirements) | Skip Step 1-2 questions, proceed directly to implementation with enhanced edge case exploration |
+| **Sparse** (minimal spec, vague requirements) | Follow full workflow to extract and structure requirements |
+
 ```
-Step 1: Collect API Documentation
+Step 1: Collect API Documentation (skip if already detailed)
     ->
-Step 2: Generate Test Scenario Matrix + Flowchart -> Markdown Output
+Step 2: Generate Test Scenario Matrix + Flowchart (skip if user specifies scenarios)
     ->
-Step 3: Configure Test Environment (ask user)
+Step 3: Configure Test Environment (always ask)
     ->
 Step 4: Implement Test Scripts + Callback Server + README
     ->
 Step 5: Verify with compileall and pytest --collect-only
+    ->
+Step 6: Clean Output (remove all command traces)
 ```
 
 ---
@@ -68,6 +77,16 @@ For each endpoint, generate test scenarios covering these dimensions:
 | **Param values** | Valid reference values, Invalid values (wrong type, out of range, empty, null) |
 | **Edge cases** | Boundary values, Unicode/special characters, Large payloads, Empty collections |
 | **Business constraints** | State transitions (e.g., completed task cannot be stopped) |
+| **Cross-endpoint flows** | CRUD cycles, async polling, cascade effects |
+
+**Deep edge case exploration (required for detailed user inputs):**
+- For each numeric field: test min-1, min, min+1, max-1, max, max+1
+- For each string field: test empty, whitespace-only, max length, over max length, Unicode
+- For each array field: test empty, single item, max items, over max items, mixed types
+- For enum fields: test each valid value, invalid values, null, empty string
+- For datetime fields: test past, future, boundary dates, invalid formats
+- For unique constraints: test duplicate creation, recreate-after-delete behavior
+- For state machines: test all valid transitions, invalid transitions, concurrent state changes
 
 ### Test scenario matrix template
 
@@ -189,6 +208,26 @@ def get_headers(content_type: str = "application/json") -> dict:
 
 **Generate when API has async operations with status polling.**
 
+**IMPORTANT: HTTPS Callback Server Requirements**
+
+If the API documentation specifies that `callback_url` or `upload_url` must be HTTPS URLs:
+
+1. Generate a local HTTPS capture server using self-signed certificates
+2. Use `openssl` to create localhost certificates with proper SAN extension
+3. Callback URLs must use `https://localhost:PORT/...` not `http://`
+4. The server must wrap the socket with SSL context
+
+Example HTTPS server setup:
+```python
+import ssl
+cert_path, key_path = _ensure_local_certificate()
+ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+ssl_context.load_cert_chain(certfile=cert_path, keyfile=key_path)
+server.socket = ssl_context.wrap_socket(server.socket, server_side=True)
+```
+
+**Do NOT generate HTTP servers for HTTPS-only APIs - this is a critical mismatch.**
+
 Key patterns:
 - `_poll_until_completed()` method with configurable max_wait and poll_interval
 - File count verification before/after operations
@@ -221,18 +260,20 @@ class TestWorkflowFullCompletion:
 
 ### README.md Template
 
-**Always generate README.md with:**
+**README.md is MANDATORY for every generated test suite. Always include:**
 
 1. **Quick Start**: Install, config env vars, run callback server, run tests
 2. **Directory Structure**: Complete file tree
-3. **Configuration**: Environment variable table
+3. **Configuration**: Environment variable table with all required and optional vars
 4. **Running Tests**:
    - Basic: `pytest tests/ -v`
    - By marker: `pytest tests/ -v -m smoke`
    - HTML report: `pytest tests/ -v --html=reports/report.html --self-contained-html`
-5. **Test Scenarios**: Table of specific test cases with URLs
-6. **Test Statistics**: Count of test cases per file
-7. **FAQ**: Common issues and solutions
+   - Parallel: `pytest tests/ -v -n auto` (if pytest-xdist installed)
+5. **Test Scenarios**: Table of specific test cases with IDs and descriptions
+6. **Test Statistics**: Count of test cases per file, per marker
+7. **Prerequisites**: System dependencies (openssl for HTTPS, etc.)
+8. **Troubleshooting FAQ**: Common issues and solutions
 
 
 ---
@@ -248,6 +289,30 @@ pytest tests/ -v --collect-only
 ```
 
 Report the compile result, total collected test count, and any import errors.
+
+---
+
+## Step 6: Clean Output
+
+**CRITICAL: All outputs must be clean and professional, without shell command traces.**
+
+When presenting generated files to the user:
+
+1. **Show file contents directly** - Use file creation/editing tools, not shell echo commands
+2. **Remove all command artifacts** - Never leave `to=shell`, `json`, or command logs in outputs
+3. **Present structured summaries** - Show what was created, not how it was created
+4. **Use proper formatting** - Code blocks, tables, headers for readability
+
+**Bad output example (DO NOT DO THIS):**
+```
+to=shell 彩神争霸快三json
+{"command":["bash","-lc","cat > tests/conftest.py...
+```
+
+**Good output example:**
+```
+Created `tests/conftest.py` with fixtures for API client, capture server, and test helpers.
+```
 
 ---
 
